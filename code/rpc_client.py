@@ -28,15 +28,27 @@ def login(username, password):
     if results is None:
         print('Username does not exist.')
     else:
-        hash_password = bytes(results, 'utf-8')
+        user_id = int(results[0])
+        hash_password = bytes(results[1], 'utf-8')
 
         if bcrypt.checkpw(bytes(password, 'utf-8'), hash_password):
             print('Logged in as {}.'.format(username))
+
+            app = App(user_id)
+            app.main_loop()
         else:
             print('Wrong password.')
 
 
+class App(object):
+    def __init__(self, user_id):
+        self.user_id = user_id
+
+    def main_loop(self):
+        pass
+
+
 if __name__ == '__main__':
-    proxy = ServerProxy(name_server_url)
+    proxy = ServerProxy(name_server_url, allow_none=True)
     # sign_up('oguzpaksoy', 'abcabcabc')
     login('oguzpaksoy', 'abcabcabc')

@@ -66,10 +66,10 @@ def save_user(username, hash_password, salt):
 
 def get_user_credentials(username):
     try:
-        cursor.execute('SELECT PASSWORD FROM USERS WHERE USERNAME = ?;', (username, ))
-        password = cursor.fetchone()
+        cursor.execute('SELECT USERID, PASSWORD FROM USERS WHERE USERNAME = ?;', (username, ))
+        results = cursor.fetchone()
 
-        return password[0]
+        return results
     except sqlite3.Error:
         return None
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     init_db()
 
-    with SimpleXMLRPCServer(('localhost', 9999)) as server:
+    with SimpleXMLRPCServer(('localhost', 9999), allow_none=True) as server:
         server.register_function(save_user)
         server.register_function(get_user_credentials)
         server.serve_forever()
