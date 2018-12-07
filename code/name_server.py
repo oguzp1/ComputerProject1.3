@@ -1,8 +1,10 @@
 import sqlite3
+from xmlrpc.server import SimpleXMLRPCServer
+import base64
 
 
-def init_user_table(db_cursor):
-    db_cursor.execute(
+def init_user_table():
+    cursor.execute(
         '''CREATE TABLE IF NOT EXISTS USERS (
             USERID INTEGER PRIMARY KEY, 
             USERNAME TEXT UNIQUE NOT NULL, 
@@ -12,8 +14,8 @@ def init_user_table(db_cursor):
     )
 
 
-def init_server_table(db_cursor):
-    db_cursor.execute(
+def init_server_table():
+    cursor.execute(
         '''CREATE TABLE IF NOT EXISTS SERVERS (
             SERVERID INTEGER PRIMARY KEY, 
             ADDRESS TEXT NOT NULL, 
@@ -22,8 +24,8 @@ def init_server_table(db_cursor):
     )
 
 
-def init_file_table(db_cursor):
-    db_cursor.execute(
+def init_file_table():
+    cursor.execute(
         '''CREATE TABLE IF NOT EXISTS FILES (
             FILEID INTEGER PRIMARY KEY,
             USERID INTEGER NOT NULL,
@@ -39,20 +41,48 @@ def init_file_table(db_cursor):
     )
 
 
-def init_db(db_cursor):
-    db_cursor.execute("SELECT name FROM sqlite_master WHERE TYPE = 'table';")
-    table_names = db_cursor.fetchall()
+def init_db():
+    cursor.execute("SELECT name FROM sqlite_master WHERE TYPE = 'table';")
+    table_names = cursor.fetchall()
 
     if len(table_names) == 0:
-        init_user_table(cursor)
-        init_server_table(cursor)
-        init_file_table(cursor)
+        init_user_table()
+        init_server_table()
+        init_file_table()
+
+
+def save_user(username, hash_password, salt):
+    try:
+        before = cursor.lastrowid
+        cursor.execute('INSERT INTO USERS (USERNAME, PASSWORD, SALT) VALUES (?, ?, ?);',
+                       (username, str(base64.b64decode(hash_password), 'utf-8'), str(base64.b64decode(salt), 'utf-8')))
+        connection.commit()
+        after = cursor.lastrowid
+
+        return before + 1 == after
+    except sqlite3.Error:
+        return False
+
+
+def get_user_credentials(username):
+    try:
+        cursor.execute('SELECT PASSWORD FROM USERS WHERE USERNAME = ?;', (username, ))
+        password = cursor.fetchone()
+
+        return password[0]
+    except sqlite3.Error:
+        return None
 
 
 if __name__ == '__main__':
     connection = sqlite3.connect('info.db')
     cursor = connection.cursor()
 
-    init_db(cursor)
+    init_db()
+
+    with SimpleXMLRPCServer(('localhost', 9999)) as server:
+        server.register_function(save_user)
+        server.register_function(get_user_credentials)
+        server.serve_forever()
 
     connection.close()
