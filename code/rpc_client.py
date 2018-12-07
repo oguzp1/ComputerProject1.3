@@ -8,8 +8,12 @@ name_server_url = 'http://{}:{}'.format(name_server_info[0], name_server_info[1]
 
 
 def sign_up(username, password):
+    if len(password) > 72:
+        print('Password must be less than 72 characters.')
+        return
+
     salt = bcrypt.gensalt()
-    hash_password = bcrypt.hashpw(base64.b64encode(hashlib.sha256(bytes(password, 'utf-8')).digest()), salt)
+    hash_password = bcrypt.hashpw(bytes(password, 'utf-8'), salt)
     print(salt, hash_password)
 
     if proxy.save_user(username, str(base64.b64encode(hash_password), 'utf-8'), str(base64.b64encode(salt), 'utf-8')):
@@ -24,9 +28,9 @@ def login(username, password):
     if results is None:
         print('Username does not exist.')
     else:
-        hash_password = results
+        hash_password = bytes(results, 'utf-8')
 
-        if bcrypt.checkpw(str(base64.b64encode(bytes(password, 'utf-8')), 'utf-8'), hash_password):
+        if bcrypt.checkpw(bytes(password, 'utf-8'), hash_password):
             print('Logged in as {}.'.format(username))
         else:
             print('Wrong password.')
