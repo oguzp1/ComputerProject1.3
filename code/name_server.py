@@ -16,16 +16,19 @@ def init_user_table():
 
 
 def init_server_table():
+    cursor.execute('DROP TABLE IF EXISTS SERVERS')
+    connection.commit()
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS SERVERS (
             SERVERID INTEGER PRIMARY KEY, 
-            ADDRESS TEXT NOT NULL, 
-            ONLINE INTEGER DEFAULT 0 CHECK (ONLINE IN (0, 1))
+            ADDRESS TEXT NOT NULL
           );'''
     )
 
 
 def init_file_table():
+    cursor.execute('DROP TABLE IF EXISTS FILES')
+    connection.commit()
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS FILES (
             FILEID INTEGER PRIMARY KEY,
@@ -34,8 +37,7 @@ def init_file_table():
             PATH TEXT NOT NULL,
             FILENAME TEXT NOT NULL,
             FILEHASH TEXT NOT NULL,
-            CREATEDATE TEXT,
-            UPDATEDATE TEXT,
+            LASTMODIFIED INTEGER NOT NULL,
             FOREIGN KEY (USERID) REFERENCES USERS(USERID),
             FOREIGN KEY (SERVERID) REFERENCES SERVERS(SERVERID)
           );'''
@@ -43,13 +45,10 @@ def init_file_table():
 
 
 def init_db():
-    cursor.execute("SELECT name FROM sqlite_master WHERE TYPE = 'table';")
-    table_names = cursor.fetchall()
-
-    if len(table_names) == 0:
-        init_user_table()
-        init_server_table()
-        init_file_table()
+    init_user_table()
+    init_server_table()
+    init_file_table()
+    connection.commit()
 
 
 def save_user(username, hash_password, salt):
@@ -85,7 +84,30 @@ def get_server_addresses(user_id):
 
 
 def register_file_server(server_id, address):
-    pass
+    try:
+        cursor.execute('INSERT INTO SERVERS (SERVERID, ADDRESS) VALUES (?, ?);', (server_id, address))
+        connection.commit()
+
+        return True
+    except sqlite3.Error:
+        return False
+
+
+def unregister_file_server(server_id):
+    cursor.execute('DELETE FROM SERVERS WHERE SERVERID = ?;', (server_id, ))
+    cursor.execute('DELETE FROM FILES WHERE SERVERID = ?;', (server_id, ))
+    connection.commit()
+
+
+def save_file_info(file_list):
+    try:
+        cursor.executemany('''INSERT INTO FILES (USERID, SERVERID, PATH, FILENAME, FILEHASH, LASTMODIFIED) 
+                              VALUES (?, ?, ?, ?, ?, ?)''', file_list)
+        connection.commit()
+
+        return True
+    except sqlite3.Error:
+        return False
 
 
 if __name__ == '__main__':
@@ -99,6 +121,8 @@ if __name__ == '__main__':
         server.register_function(get_user_credentials)
         server.register_function(get_server_addresses)
         server.register_function(register_file_server)
+        server.register_function(unregister_file_server)
+        server.register_function(save_file_info)
         server.serve_forever()
 
     connection.close()

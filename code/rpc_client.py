@@ -55,7 +55,7 @@ class App(object):
         self.user_id = user_id
 
     def main_loop(self):
-        list_file_names(self.user_id, '/')
+        list_file_names(self.user_id, '')
 
 
 if __name__ == '__main__':
