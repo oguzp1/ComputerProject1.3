@@ -142,6 +142,7 @@ if __name__ == '__main__':
                     whose = whose_file(file_path)
                     file_hash = hash_file(file_path)
                     file_last_modified = os.path.getmtime(file_path)
+                    file_path = file_path.replace(str(root_dir) + os.sep, '')
                     file_info = (whose, args.server_id, file_path, file_name, file_hash, file_last_modified)
 
                     if whose != -1:
