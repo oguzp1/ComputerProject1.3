@@ -1,13 +1,16 @@
 from xmlrpc.client import ServerProxy, Binary
 import base64
 import bcrypt
+from pathlib import Path
 from config import name_server_url
 import argparse
+import datetime
 import os
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 
 def sign_up(username, password):
     if len(password) > 72:
@@ -43,21 +46,27 @@ def login(username, password):
 
 
 def list_file_names(user_id, cloud_file_path):
-    # FIXME
-    results = proxy.get_server_addresses(user_id)
+    addresses = proxy.get_server_addresses(user_id)
 
-    file_list = set()
+    info_query_list = []
 
-    for address in results:
+    for address in addresses:
         with ServerProxy(address, allow_none=True) as new_proxy:
-            file_list.add(new_proxy.get_filenames(user_id, cloud_file_path))
+            for is_dir, file_path in new_proxy.get_filenames(user_id, cloud_file_path):
+                if is_dir:
+                    print(Path(file_path).name + '/')
+                else:
+                    info_query_list.append(file_path)
 
-    return file_list
+    for file_name, mod_date in proxy.get_file_infos(user_id, info_query_list):
+        print(file_name, datetime.datetime.fromtimestamp(mod_date))
+
 
 def get_file_binary(local_path):
     with open(local_path, 'rb') as file:
         file_bin = Binary(file.read())
     return file_bin
+
 
 def decrypt_file(username, file_bin):
     kdf = PBKDF2HMAC(
@@ -67,13 +76,14 @@ def decrypt_file(username, file_bin):
         iterations=100000,
         backend=default_backend()
     )
-    _, password =proxy.get_user_credentials(username)
+    _, password = proxy.get_user_credentials(username)
     pass_as_bytes = bytes(password, 'utf-8')
     key = base64.urlsafe_b64encode(kdf.derive(pass_as_bytes))
     f = Fernet(key)
     decrypted = Binary(f.decrypt(file_bin.data))
 
     return decrypted
+
 
 def encrypt_file(username, file_bin):
     kdf = PBKDF2HMAC(
@@ -90,6 +100,7 @@ def encrypt_file(username, file_bin):
     encrypted = f.encrypt(file_bin.data)
 
     return encrypted
+
 
 class App(object):
     def __init__(self, user_id, username):
@@ -130,13 +141,12 @@ class App(object):
                         try:
                             handle.write(decrypted)
                             print('Saved ' + filename + 'to ' + local_path_to_save)
-                        except os.error:
+                        except IOError:
                             print('Could not save ' + filename)
             elif command[0] == 'exit':
                 break
             else:
-               print('INVALID COMMAND')
-
+                print('INVALID COMMAND')
 
 
 if __name__ == '__main__':

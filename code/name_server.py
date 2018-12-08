@@ -16,7 +16,7 @@ def init_user_table():
 
 
 def init_server_table():
-    cursor.execute('DROP TABLE IF EXISTS SERVERS')
+    cursor.execute('DROP TABLE IF EXISTS SERVERS;')
     connection.commit()
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS SERVERS (
@@ -27,7 +27,7 @@ def init_server_table():
 
 
 def init_file_table():
-    cursor.execute('DROP TABLE IF EXISTS FILES')
+    cursor.execute('DROP TABLE IF EXISTS FILES;')
     connection.commit()
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS FILES (
@@ -36,6 +36,7 @@ def init_file_table():
             SERVERID INTEGER NOT NULL,
             PATH TEXT NOT NULL,
             FILENAME TEXT NOT NULL,
+            ISBACKUP INTEGER NOT NULL,
             FILEHASH TEXT NOT NULL,
             LASTMODIFIED INTEGER NOT NULL,
             FOREIGN KEY (USERID) REFERENCES USERS(USERID),
@@ -74,11 +75,11 @@ def get_user_credentials(username):
 
 def get_server_addresses(user_id):
     try:
-        cursor.execute('SELECT DISTINCT ADDRESS FROM FILES JOIN SERVERS USING (SERVERID) WHERE USERID = ?;',
-                       (user_id, ))
+        cursor.execute('''SELECT DISTINCT ADDRESS FROM FILES JOIN SERVERS USING (SERVERID) 
+                            WHERE ISBACKUP = 0 AND USERID = ?;''', (user_id, ))
         results = cursor.fetchall()
 
-        return results
+        return [address for (address, ) in results]
     except sqlite3.Error:
         return []
 
@@ -101,13 +102,27 @@ def unregister_file_server(server_id):
 
 def save_file_info(file_list):
     try:
-        cursor.executemany('''INSERT INTO FILES (USERID, SERVERID, PATH, FILENAME, FILEHASH, LASTMODIFIED) 
-                              VALUES (?, ?, ?, ?, ?, ?)''', file_list)
+        cursor.executemany('''INSERT INTO FILES (USERID, SERVERID, PATH, FILENAME, ISBACKUP, FILEHASH, LASTMODIFIED) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?)''', file_list)
         connection.commit()
 
         return True
     except sqlite3.Error:
         return False
+
+
+def get_file_infos(user_id, cloud_dir_paths):
+    try:
+        all_results = []
+
+        for dir_path in cloud_dir_paths:
+            cursor.execute('''SELECT FILENAME, LASTMODIFIED FROM FILES 
+                                WHERE ISBACKUP = 0 AND USERID = ? AND PATH LIKE ?;''', (user_id, dir_path + '%'))
+            all_results += cursor.fetchall()
+
+        return all_results
+    except sqlite3.Error:
+        return []
 
 
 if __name__ == '__main__':
@@ -123,6 +138,9 @@ if __name__ == '__main__':
         server.register_function(register_file_server)
         server.register_function(unregister_file_server)
         server.register_function(save_file_info)
-        server.serve_forever()
+        server.register_function(get_file_infos)
 
-    connection.close()
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            connection.close()

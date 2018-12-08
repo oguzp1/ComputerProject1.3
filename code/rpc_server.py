@@ -8,18 +8,16 @@ from xmlrpc.client import ServerProxy
 from config import name_server_url
 
 
-def whose_file(abs_path):
-    path_from_root = abs_path.replace(str(root_dir) + os.sep, '')
-    index = path_from_root.find(os.sep)
+def get_owner_and_backup_info(rel_path_obj):
+    folder = rel_path_obj.parts[0]
 
-    if index == -1:
-        return -1
-    else:
-        try:
-            user_id = int(path_from_root[0:index].replace('_backup', ''))
-            return user_id
-        except (ValueError, IndexError):
-            return -1
+    try:
+        if folder.endswith('_backup'):
+            return int(folder.replace('_backup', '')), 1
+        else:
+            return int(folder), 0
+    except ValueError:
+        return -1, 0
 
 
 def hash_file(file_path_for_hash):
@@ -49,26 +47,19 @@ def get_filenames(user_id, cloud_dir_path):
         user_id,
         cloud_dir_path: directory to list
 
-        returns filename array with create and update dates
+        returns array where each elements is a tuple of (is_dir, child_rel_path)
     """
     path_valid, path_obj = path_check(user_id, cloud_dir_path)
 
     if not path_valid:
         return None
 
-    dir_paths = []
-    file_paths = []
+    cd_paths = []
 
     for child in path_obj.iterdir():
-        if child.is_dir():
-            dir_paths.append(child.name)
-        else:
-            file_paths.append(child.name)
+        cd_paths.append((child.is_dir(), str(child.relative_to(root_dir / str(user_id)))))
 
-    with ServerProxy(name_server_url) as file_name_proxy:
-        file_info = file_name_proxy.get_file_info(user_id, file_paths)
-
-    return dir_paths + file_info
+    return cd_paths
 
 
 def delete_file(user_id, cloud_file_path):
@@ -195,11 +186,14 @@ if __name__ == '__main__':
             for root, dirs, files in os.walk(str(root_dir)):
                 for file_name in files:
                     file_path = os.path.join(root, file_name)
-                    whose = whose_file(file_path)
-                    file_hash = hash_file(file_path)
                     file_last_modified = os.path.getmtime(file_path)
-                    file_path = file_path.replace(str(root_dir) + os.sep, '')
-                    file_info = (whose, args.server_id, file_path, file_name, file_hash, file_last_modified)
+                    file_hash = hash_file(file_path)
+                    file_path_rel = Path(file_path).relative_to(root_dir)
+                    whose, is_backup = get_owner_and_backup_info(file_path_rel)
+                    file_path_str = str(file_path_rel.relative_to(file_path_rel.parts[0]))
+
+                    file_info = (whose, args.server_id, file_path_str, file_name,
+                                 is_backup, file_hash, file_last_modified)
 
                     if whose != -1:
                         print('Added file:', file_info)
