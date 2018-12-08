@@ -70,14 +70,10 @@ if __name__ == '__main__':
 
     if args.mode == 'signup':
         sign_up(args.username, args.password)
-        proxy.close()
     elif args.mode == 'login':
         app = login(args.username, args.password)
 
         if app is not None:
             app.main_loop()
-
-        proxy.close()
     else:
         print('Invalid operation.')
-        proxy.close()
