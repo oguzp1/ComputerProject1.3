@@ -54,13 +54,11 @@ def init_db():
 
 def save_user(username, hash_password, salt):
     try:
-        before = cursor.lastrowid
         cursor.execute('INSERT INTO USERS (USERNAME, PASSWORD, SALT) VALUES (?, ?, ?);',
                        (username, str(base64.b64decode(hash_password), 'utf-8'), str(base64.b64decode(salt), 'utf-8')))
         connection.commit()
-        after = cursor.lastrowid
 
-        return before + 1 == after
+        return True
     except sqlite3.Error:
         return False
 
