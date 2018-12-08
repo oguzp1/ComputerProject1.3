@@ -2,6 +2,7 @@ from xmlrpc.client import ServerProxy
 import base64
 import bcrypt
 from config import name_server_url
+import argparse
 
 
 def sign_up(username, password):
@@ -59,9 +60,24 @@ class App(object):
 
 
 if __name__ == '__main__':
-    proxy = ServerProxy(name_server_url, allow_none=True)
-    # sign_up('oguzpaksoy', 'abcabcabc')
-    app = login('oguzpaksoy', 'abcabcabc')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mode', help='Client run mode. Either "signup" or "login".', type=str)
+    parser.add_argument('username', help='Username of the user.', type=str)
+    parser.add_argument('password', help='Password of the user.', type=str)
+    args = parser.parse_args()
 
-    if app is not None:
-        app.main_loop()
+    proxy = ServerProxy(name_server_url, allow_none=True)
+
+    if args.mode == 'signup':
+        sign_up(args.username, args.password)
+        proxy.close()
+    elif args.mode == 'login':
+        app = login(args.username, args.password)
+
+        if app is not None:
+            app.main_loop()
+
+        proxy.close()
+    else:
+        print('Invalid operation.')
+        proxy.close()

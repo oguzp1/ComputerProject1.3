@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 import hashlib
-import threading
+import argparse
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.client import ServerProxy
 from config import name_server_url
@@ -111,59 +111,55 @@ def fetch_file(user_id, cloud_file_path):
 if __name__ == '__main__':
     root_dir = Path.home() / 'rpc_server_files'
 
-    if len(sys.argv) != 3:
-        print('Wrong number of arguments.')
-    else:
-        try:
-            server_id = int(sys.argv[1])
-            server_port = int(sys.argv[2])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('server_id', help='ID of the file server.', type=int)
+    parser.add_argument('port', help='Port of the file server.', type=int)
+    args = parser.parse_args()
 
-            with SimpleXMLRPCServer(('localhost', server_port)) as server:
-                server.register_function(get_filenames)
-                server.register_function(delete_file)
-                server.register_function(upload_file)
-                server.register_function(fetch_file)
+    with SimpleXMLRPCServer(('localhost', args.port)) as server:
+        server.register_function(get_filenames)
+        server.register_function(delete_file)
+        server.register_function(upload_file)
+        server.register_function(fetch_file)
 
-                server_url = 'http://{}:{}'.format(server.server_address[0], server.server_address[1])
+        server_url = 'http://{}:{}'.format(server.server_address[0], server.server_address[1])
 
-                server_registered = False
-                with ServerProxy(name_server_url, allow_none=True) as proxy:
-                    server_registered = proxy.register_file_server(server_id, server_url)
+        server_registered = False
+        with ServerProxy(name_server_url, allow_none=True) as proxy:
+            server_registered = proxy.register_file_server(args.server_id, server_url)
 
-                if server_registered:
-                    root_dir = root_dir / str(server_id)
-                    if not root_dir.exists():
-                        root_dir.mkdir(parents=True)
+        if server_registered:
+            root_dir = root_dir / str(args.server_id)
+            if not root_dir.exists():
+                root_dir.mkdir(parents=True)
 
-                    print('Initializing server for files in "{}"...'.format(str(root_dir)))
+            print('Initializing server for files in "{}"...'.format(str(root_dir)))
 
-                    file_list = []
-                    for root, dirs, files in os.walk(str(root_dir)):
-                        for file_name in files:
-                            file_path = os.path.join(root, file_name)
-                            whose = whose_file(file_path)
-                            file_hash = hash_file(file_path)
-                            file_last_modified = os.path.getmtime(file_path)
-                            file_info = (whose, server_id, file_path, file_name, file_hash, file_last_modified)
+            file_list = []
+            for root, dirs, files in os.walk(str(root_dir)):
+                for file_name in files:
+                    file_path = os.path.join(root, file_name)
+                    whose = whose_file(file_path)
+                    file_hash = hash_file(file_path)
+                    file_last_modified = os.path.getmtime(file_path)
+                    file_info = (whose, args.server_id, file_path, file_name, file_hash, file_last_modified)
 
-                            if whose != -1:
-                                print('Added file:', file_info)
-                                file_list.append(file_info)
+                    if whose != -1:
+                        print('Added file:', file_info)
+                        file_list.append(file_info)
 
-                    files_registered = False
+            files_registered = False
+            with ServerProxy(name_server_url, allow_none=True) as proxy:
+                files_registered = proxy.save_file_info(file_list)
+
+            if files_registered:
+                print('Serving file server on {}.'.format(server.server_address))
+                try:
+                    server.serve_forever()
+                except KeyboardInterrupt:
                     with ServerProxy(name_server_url, allow_none=True) as proxy:
-                        files_registered = proxy.save_file_info(file_list)
-
-                    if files_registered:
-                        print('Serving file server on {}.'.format(server.server_address))
-                        try:
-                            server.serve_forever()
-                        except KeyboardInterrupt:
-                            with ServerProxy(name_server_url, allow_none=True) as proxy:
-                                proxy.unregister_file_server(server_id)
-                    else:
-                        print('Failed file registration.')
-                else:
-                    print('Failed server registration.')
-        except ValueError:
-            print('One or more of the arguments are invalid.')
+                        proxy.unregister_file_server(args.server_id)
+            else:
+                print('Failed file registration.')
+        else:
+            print('Failed server registration.')
