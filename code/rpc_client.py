@@ -65,7 +65,8 @@ class App(object):
         print('OPTIONS\n'
               '- upload <file-path>      <cloud-path-to-upload>\n'
               '- delete <path-of-file>\n'
-              '- fetch  <path-on-cloud>  <local-path-to-save>\n')
+              '- fetch  <path-on-cloud>  <local-path-to-save>\n'
+              '- exit')
 
         while True:
             command = str(input('$ ')).split(' ')
@@ -92,8 +93,10 @@ class App(object):
                         try:
                             handle.write(decrypted)
                             print('Saved ' + filename + 'to ' + local_path_to_save)
-                        except:
+                        except os.error:
                             print('Could not save ' + filename)
+            elif command[0] == 'exit':
+                break
             else:
                print('INVALID COMMAND')
 
