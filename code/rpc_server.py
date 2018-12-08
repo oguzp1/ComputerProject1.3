@@ -79,10 +79,29 @@ def delete_file(user_id, cloud_file_path):
         returns success/error code
         erases file from this server and its backup server
     """
-    pass
+
+    path_valid, path_obj = path_check(user_id, cloud_file_path)
+
+    if not path_valid:
+        return None
+
+    #with ServerProxy(name_server_url, allow_none=True) as proxy:
+        # there will be a name_server function for checking backup
+
+    filename = os.path.basename(cloud_file_path)  # extract the filename from path
+
+    filename_backup = filename + str("_") + str(user_id)
+
+    if os.path.exists(filename):
+        os.remove(filename)
+
+    if os.path.exists(filename_backup):
+        os.remove(filename_backup)
+
+    return True
 
 
-def upload_file(user_id, file_bin, cloud_dir_path):
+def upload_file(user_id, file_bin, cloud_dir_path, filename):
     """
         user_id,
         file_bin: binary file pulled from the network (encrypted)
@@ -91,7 +110,27 @@ def upload_file(user_id, file_bin, cloud_dir_path):
         returns success/error code
         uploads file to this server and its backup server
     """
-    pass
+
+    path_valid, path_obj = path_check(user_id, cloud_dir_path)
+
+    if not path_valid:
+        return None
+
+    #  decrypt the file bin
+    #  ...........................
+
+    with open(os.join(cloud_dir_path, filename), "wb") as handle:
+        handle.write(file_bin.data)
+
+    backup_dir = os.join(cloud_dir_path, (filename + "_" + str(user_id)))
+
+    #with ServerProxy(name_server_url, allow_none=True) as proxy:
+        # there will be a name_server function for checking backup
+
+    with open(backup_dir, "wb") as handle:
+        handle.write(file_bin.data)
+
+    return True
 
 
 def fetch_file(user_id, cloud_file_path):
@@ -105,6 +144,23 @@ def fetch_file(user_id, cloud_file_path):
         if backup broken revert from file
         if both broken return (error, None)
     """
+
+    hash_code = hash_file(cloud_file_path)
+
+    #  with ServerProxy(name_server_url, allow_none=True) as proxy:
+        #  there will be a function return hash string from name server
+
+    #  if(hash_code != server_hash_code):  # the file is corrupted, go to the back up
+        # with ServerProxy(name_server_url, allow_none=True) as proxy:
+        # there will be a function return hash string from backup
+
+        #if(hash_code != backup_hash_code):  # the backup is also correupted
+        #    print("Sorry, the file is dead")
+
+    #  else:  # take the file from server
+        #  decrpyt the file
+        #  return the file
+
     pass
 
 
