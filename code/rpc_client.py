@@ -1,10 +1,7 @@
 from xmlrpc.client import ServerProxy
 import base64
 import bcrypt
-import hashlib
-
-name_server_info = ('localhost', 9999)
-name_server_url = 'http://{}:{}'.format(name_server_info[0], name_server_info[1])
+from config import name_server_url
 
 
 def sign_up(username, password):
@@ -33,11 +30,24 @@ def login(username, password):
 
         if bcrypt.checkpw(bytes(password, 'utf-8'), hash_password):
             print('Logged in as {}.'.format(username))
-
-            app = App(user_id)
-            app.main_loop()
+            return App(user_id)
         else:
             print('Wrong password.')
+
+    return None
+
+
+def list_file_names(user_id, cloud_file_path):
+    # FIXME
+    results = proxy.get_server_addresses(user_id)
+
+    file_list = set()
+
+    for address in results:
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            file_list.add(new_proxy.get_filenames(user_id, cloud_file_path))
+
+    return file_list
 
 
 class App(object):
@@ -45,10 +55,13 @@ class App(object):
         self.user_id = user_id
 
     def main_loop(self):
-        pass
+        list_file_names(self.user_id, '/')
 
 
 if __name__ == '__main__':
     proxy = ServerProxy(name_server_url, allow_none=True)
     # sign_up('oguzpaksoy', 'abcabcabc')
-    login('oguzpaksoy', 'abcabcabc')
+    app = login('oguzpaksoy', 'abcabcabc')
+
+    if app is not None:
+        app.main_loop()

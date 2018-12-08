@@ -1,6 +1,7 @@
 import sqlite3
 from xmlrpc.server import SimpleXMLRPCServer
 import base64
+from config import name_server_info
 
 
 def init_user_table():
@@ -74,15 +75,32 @@ def get_user_credentials(username):
         return None
 
 
+def get_server_addresses(user_id):
+    try:
+        cursor.execute('SELECT DISTINCT ADDRESS FROM FILES JOIN SERVERS USING (SERVERID) WHERE USERID = ?;',
+                       (user_id, ))
+        results = cursor.fetchall()
+
+        return results
+    except sqlite3.Error:
+        return []
+
+
+def register_file_server(server_id, address):
+    pass
+
+
 if __name__ == '__main__':
     connection = sqlite3.connect('info.db')
     cursor = connection.cursor()
 
     init_db()
 
-    with SimpleXMLRPCServer(('localhost', 9999), allow_none=True) as server:
+    with SimpleXMLRPCServer(name_server_info, allow_none=True) as server:
         server.register_function(save_user)
         server.register_function(get_user_credentials)
+        server.register_function(get_server_addresses)
+        server.register_function(register_file_server)
         server.serve_forever()
 
     connection.close()
