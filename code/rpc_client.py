@@ -71,7 +71,7 @@ def decrypt_file(username, file_bin):
     pass_as_bytes = bytes(password, 'utf-8')
     key = base64.urlsafe_b64encode(kdf.derive(pass_as_bytes))
     f = Fernet(key)
-    decrypted = f.decrypt(file_bin.data)
+    decrypted = Binary(f.decrypt(file_bin.data))
 
     return decrypted
 
