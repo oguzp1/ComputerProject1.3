@@ -46,10 +46,9 @@ The name server keeps a database to store user, file and server data in separate
 The tables are as shown below:
 
 - Users table:
-    | USERID    | USERNAME  |  PASSWORD  |  SALT  |
-    |-----------|-----------|------------|--------|
-    |integer   |    text   |    text    |  text  |
-
+    | USERID   | USERNAME  |  PASSWORD  | SALT  | 
+    |------|------|------|------|------|------|
+    |integer|text|text|text|
 - Files table:
 
     | FILEID   | USERID  |  SERVERID  |  PATH  | FILENAME | ISBACKUP |FILEHASH | LASTMODIFIED | USERID | SERVERID |
@@ -57,9 +56,10 @@ The tables are as shown below:
     |integer|integer|integer|integer|text|integer|text|integer|FK|FK|
 
 - Server table:
-    | SERVERID    | ADDRESS  | 
-    |-----------|-----------|
-    |integer   |    text   |
+    | SERVERID  | ADDRESS  |
+    |------|------|
+    |integer|text|
+
 
 It is implemented using SimpleXMLRPCServer class of [xmlrpc](https://docs.python.org/3.7/library/xmlrpc.html) module of Python. The methods implemented by name server can be called by both the client and the server through RPC, as it aims to ensure the communication between the two and them and itself.
 
