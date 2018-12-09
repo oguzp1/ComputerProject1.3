@@ -87,6 +87,18 @@ def can_change_dir(user_id, cloud_dir_path):
 
 
 def make_dirs(user_id, cloud_dir_path):
+    addresses = proxy.get_server_addresses(user_id)
+
+    exists = False
+    for address in addresses:
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, cloud_dir_path)
+            if path_valid and exists:
+                exists = True
+
+    if exists:
+        return False
+
     address = proxy.get_next_server()
 
     with ServerProxy(address, allow_none=True) as new_proxy:
