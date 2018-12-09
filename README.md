@@ -43,6 +43,8 @@ These options can be used as command-line commands.
 ## About the Project
 ## Name Server
 The name server keeps a database to store user, file and server data in separate tables. It also implements methods to alter these tables and serve data when requested, such as deleting and saving to databases, getting user credentials and server addresses. 
+It is implemented using SimpleXMLRPCServer class of [xmlrpc](https://docs.python.org/3.7/library/xmlrpc.html) module of Python. The methods implemented by name server can be called by both the client and the server through RPC, as it aims to ensure the communication between the two and them and itself.
+
 The tables are as shown below:
 
 - Users table:
@@ -54,12 +56,13 @@ The tables are as shown below:
     | FILEID   | USERID  |  SERVERID  |  PATH  | FILENAME | ISBACKUP |FILEHASH | LASTMODIFIED | USERID | SERVERID |
     |------|------|------|------|------|------|------|------|------|-------|
     |integer|integer|integer|integer|text|integer|text|integer|FK|FK|
-- Server table:<br/>
+- Server table:
+
     | SERVERID | ADDRESS |
     |----------|---------|
     | integer  | text    |
 
-It is implemented using SimpleXMLRPCServer class of [xmlrpc](https://docs.python.org/3.7/library/xmlrpc.html) module of Python. The methods implemented by name server can be called by both the client and the server through RPC, as it aims to ensure the communication between the two and them and itself.
+
 
 ## Server
 The server stores files uploaded by the user. In order to guarantee redundancy, every server has a backup server that stores the same files. Servers have two types of directories, one named by the user who owns the directory (*'<user_id>'*) one named by the user and marked as backup (*'<user_id>_backup'*). When a file is uploaded, its hash is stored in the database. When the file is being fetched, it's hash is recalculated and compared to the hash recorded in the database. If it does not match, the copy in the backup server is checked and sent to the client.
