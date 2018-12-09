@@ -56,7 +56,7 @@ The tables are as shown below:
     |integer|integer|integer|integer|text|integer|text|integer|FK|FK|
 
 - Server table:
-    | SERVERID   | ADDRESS |
+    | SERVERID | ADDRESS |
     |------|------|
     |integer|text|
 
