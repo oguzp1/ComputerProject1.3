@@ -195,7 +195,7 @@ class App(object):
                         decrypted = decrypt_file(self.username, file_bin)
                         try:
                             handle.write(decrypted)
-                            print('Saved ' + filename + 'to ' + local_path_to_save)
+                            print(f'Saved {filename} to {local_path_to_save}')
                         except IOError:
                             print('Could not save ' + filename)
             elif command[0] == 'exit':
