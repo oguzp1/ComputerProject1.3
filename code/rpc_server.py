@@ -34,6 +34,15 @@ def hash_file(file_path_for_hash):
     return hash_obj.hexdigest()
 
 
+def generate_file_info(server_id, os_file_path, os_file_name):
+    file_last_modified = os.path.getmtime(os_file_path)
+    file_hash = hash_file(os_file_path)
+    file_path_rel = Path(os_file_path).relative_to(root_dir)
+    whose, is_backup = get_owner_and_backup_info(file_path_rel)
+    file_path_str = str(file_path_rel.relative_to(file_path_rel.parts[0]))
+    return whose, server_id, file_path_str, os_file_name, is_backup, file_hash, file_last_modified
+
+
 def path_check(user_id, path, backup=False):
     base_dir = root_dir / (str(user_id) + '_backup') if backup else root_dir / str(user_id)
     path_obj = (base_dir / path).resolve()
@@ -111,13 +120,16 @@ def delete_file(user_id, cloud_file_path, backup=False):
                 if not file_server_proxy.delete_file(user_id, cloud_file_path, True):
                     return False
 
-    with ServerProxy(name_server_url, allow_none=True) as name_proxy:
-        ret = name_proxy.remove_file(user_id, rel_path_str)
+        with ServerProxy(name_server_url, allow_none=True) as name_proxy:
+            if not name_proxy.remove_file(user_id, rel_path_str):
+                return False
 
-    return ret
+    return True
 
 
-def upload_file(user_id, file_bin, cloud_dir_path, filename):
+def upload_file(user_id, file_bin, cloud_dir_path, filename, backup=False):
+    global args
+
     """
         user_id,
         file_bin: binary file pulled from the network (encrypted)
@@ -126,27 +138,42 @@ def upload_file(user_id, file_bin, cloud_dir_path, filename):
         returns success/error code
         uploads file to this server and its backup server
     """
-
     path_valid, path_exists, rel_path_str = path_check(user_id, cloud_dir_path)
 
     if not path_valid:
-        return None
+        return False
 
-    #  decrypt the file bin
-    #  ...........................
+    if backup:
+        path_obj = (root_dir / (str(user_id) + '_backup') / rel_path_str).resolve()
 
-    with open(os.join(cloud_dir_path, filename), "wb") as handle:
+        if not path_obj.exists():
+            path_obj.mkdir(parents=True)
+
+        path_obj = (path_obj / filename).resolve()
+    else:
+        if not path_exists:
+            return False
+
+        path_obj = (root_dir / str(user_id) / rel_path_str / filename).resolve()
+
+    with open(str(path_obj), 'wb') as handle:
         handle.write(file_bin.data)
 
-    backup_dir = os.join(cloud_dir_path, (filename + "_" + str(user_id)))
+    if not backup:
+        with ServerProxy(name_server_url, allow_none=True) as name_proxy:
+            address = name_proxy.get_next_server()
 
-    #with ServerProxy(name_server_url, allow_none=True) as proxy:
-        # there will be a name_server function for checking backup
+        if address == '':
+            return False
 
-    with open(backup_dir, "wb") as handle:
-        handle.write(file_bin.data)
+        with ServerProxy(address, allow_none=True) as file_server_proxy:
+            if not file_server_proxy.upload_file(user_id, file_bin, cloud_dir_path, filename, True):
+                return False
 
-    return True
+    with ServerProxy(name_server_url, allow_none=True) as name_proxy:
+        saved = name_proxy.save_file_info([generate_file_info(args.server_id, str(path_obj), filename)])
+
+    return saved
 
 
 def fetch_file(user_id, cloud_file_path):
@@ -213,16 +240,9 @@ if __name__ == '__main__':
             for root, dirs, files in os.walk(str(root_dir)):
                 for file_name in files:
                     file_path = os.path.join(root, file_name)
-                    file_last_modified = os.path.getmtime(file_path)
-                    file_hash = hash_file(file_path)
-                    file_path_rel = Path(file_path).relative_to(root_dir)
-                    whose, is_backup = get_owner_and_backup_info(file_path_rel)
-                    file_path_str = str(file_path_rel.relative_to(file_path_rel.parts[0]))
+                    file_info = generate_file_info(args.server_id, file_path, file_name)
 
-                    file_info = (whose, args.server_id, file_path_str, file_name,
-                                 is_backup, file_hash, file_last_modified)
-
-                    if whose != -1:
+                    if file_info[0] != -1:
                         print('Added file:', file_info)
                         file_list.append(file_info)
 

@@ -127,6 +127,34 @@ def delete_file(user_id, cloud_file_path):
     return success
 
 
+def upload_file(user_id, file_bin, cloud_file_path, filename):
+    addresses = proxy.get_server_addresses(user_id)
+    file_path_with_filename = str(Path(cloud_file_path) / filename)
+
+    existing_servers = []
+    for address in addresses:
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, file_path_with_filename)
+
+            if path_valid and path_exists:
+                existing_servers.append(address)
+
+    if len(existing_servers) > 1:
+        return False
+    elif len(existing_servers) == 1:
+        deleted = delete_file(user_id, file_path_with_filename)
+
+        if not deleted:
+            return False
+
+    address = proxy.get_next_server()
+
+    with ServerProxy(address, allow_none=True) as new_proxy:
+        added = new_proxy.upload_file(user_id, file_bin, cloud_file_path, filename)
+
+    return added
+
+
 def get_file_binary(local_path):
     with open(local_path, 'rb') as file:
         file_bin = Binary(file.read())
@@ -218,7 +246,7 @@ class App(object):
                     if local_file_path_obj.is_file():
                         file_bin = encrypt_file(self.username, get_file_binary(str(local_file_path_obj)))
 
-                        if proxy.upload_file(file_bin, cloud_file_path, filename):
+                        if upload_file(self.user_id, file_bin, cloud_file_path, filename):
                             print('Uploaded "{}" to "{}" successfully.'.format(filename,
                                                                                self.username + os.sep + rel_path))
                         else:
