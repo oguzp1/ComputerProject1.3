@@ -50,16 +50,27 @@ def list_file_names(user_id, cloud_file_path):
 
     info_query_list = []
 
+    print('=' * 80)
+    print('{0:45s} {1:7s} {2}'.format('File Name', 'Type', 'Last Update'))
+    print('=' * 80)
+
     for address in addresses:
         with ServerProxy(address, allow_none=True) as new_proxy:
             for is_dir, file_path in new_proxy.get_filenames(user_id, cloud_file_path):
                 if is_dir:
-                    print(Path(file_path).name + '/')
+                    print('{0:45s} <DIR>'.format(Path(file_path).name + '/'))
                 else:
                     info_query_list.append(file_path)
 
     for file_name, mod_date in proxy.get_file_infos(user_id, info_query_list):
-        print(file_name, datetime.datetime.fromtimestamp(mod_date))
+        print('{0:45s} {1:7s} {2}'.format(file_name, Path(file_name).suffix[1:].upper(),
+                                          datetime.datetime.fromtimestamp(mod_date)))
+
+    print('=' * 80)
+
+
+def make_dirs(user_id, cloud_dir_path):
+    pass
 
 
 def get_file_binary(local_path):
@@ -106,19 +117,26 @@ class App(object):
     def __init__(self, user_id, username):
         self.user_id = user_id
         self.username = username
+        self.cd = ''
 
     def main_loop(self):
-        list_file_names(self.user_id, '')
-        print('OPTIONS\n'
-              '- upload <file-path>      <cloud-path-to-upload> <filename>\n'
-              '- delete <path-of-file>\n'
-              '- fetch  <path-on-cloud>  <local-path-to-save>\n'
-              '- exit')
-
         while True:
+            list_file_names(self.user_id, self.cd)
+
+            print('OPTIONS')
+            print('- makedir <dir-path>')
+            print('- deletedir <dir-path>')
+            print('- upload <file-path> <cloud-path-to-upload> <filename>')
+            print('- delete <path-of-file>')
+            print('- fetch <path-on-cloud> <local-path-to-save>')
+            print('- exit')
             command = str(input('$ ')).split(' ')
 
-            if command[0] == 'upload' and len(command) == 4:
+            if command[0] == 'makedir' and len(command) == 2:
+                pass
+            elif command[0] == 'deletedir' and len(command) == 2:
+                pass
+            elif command[0] == 'upload' and len(command) == 4:
                 local_file_path = command[1]
                 cloud_file_path = command[2]
                 filename = command[3]
@@ -146,7 +164,7 @@ class App(object):
             elif command[0] == 'exit':
                 break
             else:
-                print('INVALID COMMAND')
+                print('Invalid Command.')
 
 
 if __name__ == '__main__':
