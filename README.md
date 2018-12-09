@@ -56,10 +56,9 @@ The tables are as shown below:
     |integer|integer|integer|integer|text|integer|text|integer|FK|FK|
 
 - Server table:
-    | SERVERID  | ADDRESS  |
-    |------|------|
+    | SERVERID   | ADDRESS |
+    |------|------|------|
     |integer|text|
-
 
 It is implemented using SimpleXMLRPCServer class of [xmlrpc](https://docs.python.org/3.7/library/xmlrpc.html) module of Python. The methods implemented by name server can be called by both the client and the server through RPC, as it aims to ensure the communication between the two and them and itself.
 
