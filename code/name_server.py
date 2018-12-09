@@ -142,6 +142,28 @@ def get_file_infos(user_id, cloud_dir_paths):
         return []
 
 
+def get_file_backup_servers(server_id, user_id, cloud_file_rel_path):
+    try:
+        cursor.execute('''SELECT ADDRESS FROM FILES JOIN SERVERS USING (SERVERID) 
+                            WHERE ISBACKUP = 1 AND SERVERID != ? AND USERID = ? AND PATH = ?''',
+                       (server_id, user_id, cloud_file_rel_path))
+        results = cursor.fetchall()
+
+        return [address for (address, ) in results]
+    except sqlite3.Error:
+        return []
+
+
+def remove_file(user_id, cloud_file_rel_path):
+    try:
+        cursor.execute('DELETE FROM FILES WHERE USERID = ? AND PATH = ?;', (user_id, cloud_file_rel_path))
+        connection.commit()
+
+        return True
+    except sqlite3.Error:
+        return False
+
+
 if __name__ == '__main__':
     server_counter = 0
 
@@ -159,6 +181,8 @@ if __name__ == '__main__':
         server.register_function(unregister_file_server)
         server.register_function(save_file_info)
         server.register_function(get_file_infos)
+        server.register_function(get_file_backup_servers)
+        server.register_function(remove_file)
 
         try:
             server.serve_forever()
