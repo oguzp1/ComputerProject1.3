@@ -48,7 +48,8 @@ def login(username, password):
 def list_file_names(user_id, cloud_file_path):
     addresses = proxy.get_server_addresses(user_id)
 
-    info_query_list = []
+    dir_paths = set()
+    info_queries = set()
 
     print('=' * 80)
     print('{0:45s} {1:7s} {2}'.format('File Name', 'Type', 'Last Update'))
@@ -58,15 +59,31 @@ def list_file_names(user_id, cloud_file_path):
         with ServerProxy(address, allow_none=True) as new_proxy:
             for is_dir, file_path in new_proxy.get_filenames(user_id, cloud_file_path):
                 if is_dir:
-                    print('{0:45s} <DIR>'.format(Path(file_path).name + '/'))
+                    dir_paths.add(file_path)
                 else:
-                    info_query_list.append(file_path)
+                    info_queries.add(file_path)
 
-    for file_name, mod_date in proxy.get_file_infos(user_id, info_query_list):
+    for dir_path in dir_paths:
+        print('{0:45s} <DIR>'.format(Path(dir_path).name + '/'))
+
+    for file_name, mod_date in proxy.get_file_infos(user_id, list(info_queries)):
         print('{0:45s} {1:7s} {2}'.format(file_name, Path(file_name).suffix[1:].upper(),
                                           datetime.datetime.fromtimestamp(mod_date)))
 
     print('=' * 80)
+
+
+def can_change_dir(user_id, cloud_dir_path):
+    for address in proxy.get_server_addresses(user_id):
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, cloud_dir_path)
+
+        if not path_valid:
+            return False, ''
+        elif path_exists:
+            return True, rel_path_str
+
+    return False, ''
 
 
 def make_dirs(user_id, cloud_dir_path):
@@ -121,9 +138,10 @@ class App(object):
 
     def main_loop(self):
         while True:
-            list_file_names(self.user_id, self.cd)
+            list_file_names(self.user_id, str(self.cd))
 
             print('OPTIONS')
+            print('- changedir <dir-path>')
             print('- makedir <dir-path>')
             print('- deletedir <dir-path>')
             print('- upload <file-path> <cloud-path-to-upload> <filename>')
@@ -132,7 +150,16 @@ class App(object):
             print('- exit')
             command = str(input('$ ')).split(' ')
 
-            if command[0] == 'makedir' and len(command) == 2:
+            if command[0] == 'changedir' and len(command) == 2:
+                target_dir = Path(self.cd) / command[1].strip()
+                can_change, rel_path = can_change_dir(self.user_id, str(target_dir))
+
+                if can_change:
+                    self.cd = rel_path
+                    print('{}/'.format(self.username) + self.cd)
+                else:
+                    print('Invalid file path.')
+            elif command[0] == 'makedir' and len(command) == 2:
                 pass
             elif command[0] == 'deletedir' and len(command) == 2:
                 pass

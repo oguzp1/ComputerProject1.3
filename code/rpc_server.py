@@ -38,8 +38,16 @@ def hash_file(file_path_for_hash):
 def path_check(user_id, path):
     base_dir = root_dir / str(user_id)
     path_obj = (base_dir / path).resolve()
-    path_valid = str(path_obj).startswith(str(base_dir))
-    return path_valid, path_obj
+    path_exists = path_obj.exists()
+    path_str = str(path_obj)
+    path_valid = path_str.startswith(str(base_dir))
+    rel_path_str = path_str.replace(str(base_dir), '')
+    rel_path_str = rel_path_str[1:] if rel_path_str.startswith(os.sep) else rel_path_str
+    return path_valid, path_exists, rel_path_str
+
+
+def get_relative_path(user_id, cloud_path_str):
+    return str(Path(cloud_path_str).resolve().relative_to(root_dir / str(user_id)))
 
 
 def get_filenames(user_id, cloud_dir_path):
@@ -49,15 +57,14 @@ def get_filenames(user_id, cloud_dir_path):
 
         returns array where each elements is a tuple of (is_dir, child_rel_path)
     """
-    path_valid, path_obj = path_check(user_id, cloud_dir_path)
-
-    if not path_valid:
-        return None
+    base_dir = root_dir / str(user_id)
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_dir_path)
 
     cd_paths = []
 
-    for child in path_obj.iterdir():
-        cd_paths.append((child.is_dir(), str(child.relative_to(root_dir / str(user_id)))))
+    if path_valid and path_exists:
+        for child in (base_dir / rel_path_str).iterdir():
+            cd_paths.append((child.is_dir(), str(child.relative_to(root_dir / str(user_id)))))
 
     return cd_paths
 
@@ -71,7 +78,7 @@ def delete_file(user_id, cloud_file_path):
         erases file from this server and its backup server
     """
 
-    path_valid, path_obj = path_check(user_id, cloud_file_path)
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_file_path)
 
     if not path_valid:
         return None
@@ -102,7 +109,7 @@ def upload_file(user_id, file_bin, cloud_dir_path, filename):
         uploads file to this server and its backup server
     """
 
-    path_valid, path_obj = path_check(user_id, cloud_dir_path)
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_dir_path)
 
     if not path_valid:
         return None
@@ -164,6 +171,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     with SimpleXMLRPCServer(('localhost', args.port)) as server:
+        server.register_function(path_check)
         server.register_function(get_filenames)
         server.register_function(delete_file)
         server.register_function(upload_file)
