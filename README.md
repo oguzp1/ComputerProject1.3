@@ -54,7 +54,6 @@ The tables are as shown below:
     | FILEID   | USERID  |  SERVERID  |  PATH  | FILENAME | ISBACKUP |FILEHASH | LASTMODIFIED | USERID | SERVERID |
     |------|------|------|------|------|------|------|------|------|-------|
     |integer|integer|integer|integer|text|integer|text|integer|FK|FK|
-
 - Server table:<br/>
     | SERVERID | ADDRESS |
     |----------|---------|
