@@ -93,7 +93,7 @@ def make_dirs(user_id, cloud_dir_path):
     for address in addresses:
         with ServerProxy(address, allow_none=True) as new_proxy:
             path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, cloud_dir_path)
-            if path_valid and exists:
+            if path_valid and path_exists:
                 exists = True
 
     if exists:
@@ -105,6 +105,26 @@ def make_dirs(user_id, cloud_dir_path):
         made = new_proxy.make_dirs(user_id, cloud_dir_path)
 
     return made
+
+
+def delete_file(user_id, cloud_file_path):
+    addresses = proxy.get_server_addresses(user_id)
+
+    existing_servers = []
+    for address in addresses:
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, cloud_file_path)
+
+            if path_valid and path_exists:
+                existing_servers.append(address)
+
+    if len(existing_servers) != 1:
+        return False
+
+    with ServerProxy(existing_servers[0], allow_none=True) as new_proxy:
+        success = new_proxy.delete_file(user_id, cloud_file_path)
+
+    return success
 
 
 def get_file_binary(local_path):
@@ -155,6 +175,7 @@ class App(object):
 
     def main_loop(self):
         while True:
+            print('Current directory:', self.username + os.sep + self.cd)
             list_file_names(self.user_id, str(self.cd))
 
             print('OPTIONS')
@@ -173,9 +194,9 @@ class App(object):
 
                 if can_change:
                     self.cd = rel_path
-                    print('{}/{}'.format(self.username, self.cd))
                 else:
                     print('Invalid file path.')
+
             elif command[0] == 'makedir' and len(command) == 2:
                 target_dir_str = str(Path(self.cd) / command[1].strip())
 
@@ -183,18 +204,35 @@ class App(object):
                     print('Successfully created "{}".'.format(target_dir_str))
                 else:
                     print('Could not create directory.')
+
             elif command[0] == 'deletedir' and len(command) == 2:
                 pass
             elif command[0] == 'upload' and len(command) == 4:
-                local_file_path = command[1]
-                cloud_file_path = command[2]
-                filename = command[3]
-                file_bin = encrypt_file(self.username, get_file_binary(local_file_path))
-                proxy.upload_file(file_bin, cloud_file_path, filename)
+                local_file_path_obj = Path(command[1].strip()).resolve()
+                cloud_file_path = str(Path(self.cd) / command[2].strip())
+                filename = command[3].strip()
+
+                can_change, rel_path = can_change_dir(self.user_id, cloud_file_path)
+
+                if can_change:
+                    if local_file_path_obj.is_file():
+                        file_bin = encrypt_file(self.username, get_file_binary(str(local_file_path_obj)))
+
+                        if proxy.upload_file(file_bin, cloud_file_path, filename):
+                            print('Uploaded "{}" to "{}" successfully.'.format(filename,
+                                                                               self.username + os.sep + rel_path))
+                        else:
+                            print('Upload failed.')
+                else:
+                    print('Invalid cloud path.')
 
             elif command[0] == 'delete' and len(command) == 2:
-                cloud_file_path = command[1]
-                proxy.delete_file(self.user_id, cloud_file_path)
+                target_dir_str = str(Path(self.cd) / command[1].strip())
+
+                if delete_file(self.user_id, target_dir_str):
+                    print('File at "{}" deleted successfully.'.format(target_dir_str))
+                else:
+                    print('Could not delete file.')
 
             elif command[0] == 'fetch' and len(command) == 3:
                 cloud_file_path = command[1]

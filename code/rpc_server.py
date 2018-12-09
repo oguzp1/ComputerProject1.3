@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 import hashlib
 import argparse
@@ -35,8 +34,8 @@ def hash_file(file_path_for_hash):
     return hash_obj.hexdigest()
 
 
-def path_check(user_id, path):
-    base_dir = root_dir / str(user_id)
+def path_check(user_id, path, backup=False):
+    base_dir = root_dir / (str(user_id) + '_backup') if backup else root_dir / str(user_id)
     path_obj = (base_dir / path).resolve()
     path_exists = path_obj.exists()
     path_str = str(path_obj)
@@ -44,10 +43,6 @@ def path_check(user_id, path):
     rel_path_str = path_str.replace(str(base_dir), '')
     rel_path_str = rel_path_str[1:] if rel_path_str.startswith(os.sep) else rel_path_str
     return path_valid, path_exists, rel_path_str
-
-
-def get_relative_path(user_id, cloud_path_str):
-    return str(Path(cloud_path_str).resolve().relative_to(root_dir / str(user_id)))
 
 
 def get_filenames(user_id, cloud_dir_path):
@@ -81,7 +76,9 @@ def make_dirs(user_id, cloud_dir_path):
     return True
 
 
-def delete_file(user_id, cloud_file_path):
+def delete_file(user_id, cloud_file_path, backup=False):
+    global args
+
     """
         user_id,
         cloud_file_path: path of the file to delete
@@ -90,25 +87,34 @@ def delete_file(user_id, cloud_file_path):
         erases file from this server and its backup server
     """
 
-    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_file_path)
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_file_path, backup=backup)
 
-    if not path_valid:
-        return None
+    if not path_valid or not path_exists:
+        return False
 
-    #with ServerProxy(name_server_url, allow_none=True) as proxy:
-        # there will be a name_server function for checking backup
+    if backup:
+        path_obj = (root_dir / (str(user_id) + '_backup') / rel_path_str).resolve()
+    else:
+        path_obj = (root_dir / str(user_id) / rel_path_str).resolve()
 
-    filename = os.path.basename(cloud_file_path)  # extract the filename from path
+    if path_obj.is_file():
+        os.remove(str(path_obj))
+    else:
+        return False
 
-    filename_backup = filename + str("_") + str(user_id)
+    if not backup:
+        with ServerProxy(name_server_url, allow_none=True) as name_proxy:
+            addresses = name_proxy.get_file_backup_servers(args.server_id, user_id, rel_path_str)
 
-    if os.path.exists(filename):
-        os.remove(filename)
+        for address in addresses:
+            with ServerProxy(address, allow_none=True) as file_server_proxy:
+                if not file_server_proxy.delete_file(user_id, cloud_file_path, True):
+                    return False
 
-    if os.path.exists(filename_backup):
-        os.remove(filename_backup)
+    with ServerProxy(name_server_url, allow_none=True) as name_proxy:
+        ret = name_proxy.remove_file(user_id, rel_path_str)
 
-    return True
+    return ret
 
 
 def upload_file(user_id, file_bin, cloud_dir_path, filename):
