@@ -107,6 +107,19 @@ def make_dirs(user_id, cloud_dir_path):
     return made
 
 
+def del_dir(user_id, cloud_dir_path):
+    addresses = proxy.get_server_addresses(user_id)
+
+    for address in addresses:
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, cloud_dir_path)
+            if path_valid and path_exists:
+                if not new_proxy.delete_empty_dir(user_id, cloud_dir_path):
+                    return False
+
+    return True
+
+
 def delete_file(user_id, cloud_file_path):
     addresses = proxy.get_server_addresses(user_id)
 
@@ -261,7 +274,12 @@ class App(object):
                     print('Could not create directory.')
 
             elif command[0] == 'deletedir' and len(command) == 2:
-                pass
+                target_dir_str = str(Path(self.cd) / command[1].strip())
+
+                if del_dir(self.user_id, target_dir_str):
+                    print('Successfully deleted "{}".'.format(target_dir_str))
+                else:
+                    print('Could not delete directory.')
             elif command[0] == 'upload' and len(command) == 4:
                 local_file_path_obj = Path(command[1].strip()).resolve()
                 cloud_file_path = str(Path(self.cd) / command[2].strip())

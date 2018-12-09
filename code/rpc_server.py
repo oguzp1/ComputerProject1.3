@@ -245,6 +245,20 @@ def fetch_file(user_id, cloud_file_path, backup=False, backup_ord=0):
         return False, None
 
 
+def delete_empty_dir(user_id, cloud_dir_path):
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_dir_path)
+    path_obj = root_dir / str(user_id) / rel_path_str
+
+    if not path_valid or not path_obj.is_dir():
+        return False
+
+    if not os.listdir(str(path_obj)):
+        path_obj.rmdir()
+        return True
+    else:
+        return False
+
+
 if __name__ == '__main__':
     root_dir = Path.home() / 'rpc_server_files'
 
@@ -261,6 +275,7 @@ if __name__ == '__main__':
         server.register_function(delete_file)
         server.register_function(upload_file)
         server.register_function(fetch_file)
+        server.register_function(delete_empty_dir)
 
         server_url = 'http://{}:{}'.format(server.server_address[0], server.server_address[1])
 
