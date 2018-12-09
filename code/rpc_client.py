@@ -155,6 +155,23 @@ def upload_file(user_id, file_bin, cloud_file_path, filename):
     return added
 
 
+def fetch_file(user_id, username, cloud_file_path, local_path_obj):
+    flag, file_bin = proxy.fetch_file(user_id, cloud_file_path)
+    filename = Path(cloud_file_path).name
+
+    if not flag:
+        return False
+
+    with open(str((local_path_obj / filename).resolve()), 'wb') as handle:
+        decrypted = decrypt_file(username, file_bin)
+        try:
+            handle.write(decrypted)
+        except IOError:
+            return False
+
+    return True
+
+
 def get_file_binary(local_path):
     with open(local_path, 'rb') as file:
         file_bin = Binary(file.read())
@@ -175,7 +192,7 @@ def decrypt_file(username, file_bin):
     f = Fernet(key)
     decrypted = Binary(f.decrypt(file_bin.data))
 
-    return decrypted
+    return decrypted.data
 
 
 def encrypt_file(username, file_bin):
@@ -263,19 +280,17 @@ class App(object):
                     print('Could not delete file.')
 
             elif command[0] == 'fetch' and len(command) == 3:
-                cloud_file_path = command[1]
-                local_path_to_save = command[2]
-                flag, file_bin = proxy.fetch_file(self.user_id, cloud_file_path)
-                path, filename = os.path.split(cloud_file_path)
+                cloud_file_path = str(Path(self.cd) / command[1].strip())
+                local_path_to_save_obj = Path(command[2].strip()).resolve()
 
-                if flag:
-                    with open(local_path_to_save + filename, "wb") as handle:
-                        decrypted = decrypt_file(self.username, file_bin)
-                        try:
-                            handle.write(decrypted)
-                            print('Saved ' + filename + 'to ' + local_path_to_save)
-                        except IOError:
-                            print('Could not save ' + filename)
+                if not local_path_to_save_obj.is_dir():
+                    print('Invalid local directory.')
+                else:
+                    if fetch_file(self.user_id, self.username, cloud_file_path, local_path_to_save_obj):
+                        print('File saved to {}.'.format(str(local_path_to_save_obj)))
+                    else:
+                        print('Fetching failed.')
+
             elif command[0] == 'exit':
                 break
             else:

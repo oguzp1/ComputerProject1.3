@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 import argparse
 from xmlrpc.server import SimpleXMLRPCServer
-from xmlrpc.client import ServerProxy
+from xmlrpc.client import ServerProxy, Binary
 from config import name_server_url
 
 
@@ -34,6 +34,12 @@ def hash_file(file_path_for_hash):
     return hash_obj.hexdigest()
 
 
+def get_file_binary(abs_path):
+    with open(abs_path, 'rb') as file:
+        file_bin = Binary(file.read())
+    return file_bin
+
+
 def generate_file_info(server_id, os_file_path, os_file_name):
     file_last_modified = os.path.getmtime(os_file_path)
     file_hash = hash_file(os_file_path)
@@ -52,6 +58,25 @@ def path_check(user_id, path, backup=False):
     rel_path_str = path_str.replace(str(base_dir), '')
     rel_path_str = rel_path_str[1:] if rel_path_str.startswith(os.sep) else rel_path_str
     return path_valid, path_exists, rel_path_str
+
+
+def check_file_hash(user_id, cloud_file_path, hash_to_check, backup=False):
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_file_path)
+
+    if not path_valid or not path_exists:
+        return False, 'INVALID'
+
+    if backup:
+        path_obj = (root_dir / (str(user_id) + '_backup') / rel_path_str).resolve()
+    else:
+        path_obj = (root_dir / str(user_id) / rel_path_str).resolve()
+
+    hash_of_file = hash_file(str(path_obj))
+
+    if hash_of_file == hash_to_check:
+        return True, 'MATCHED'
+    else:
+        return False, 'NOT_MATCHED'
 
 
 def get_filenames(user_id, cloud_dir_path):
@@ -176,7 +201,7 @@ def upload_file(user_id, file_bin, cloud_dir_path, filename, backup=False):
     return saved
 
 
-def fetch_file(user_id, cloud_file_path):
+def fetch_file(user_id, cloud_file_path, backup=False, backup_ord=0):
     """
         user_id,
         cloud_file_path: path of the file to fetch
@@ -188,23 +213,36 @@ def fetch_file(user_id, cloud_file_path):
         if both broken return (error, None)
     """
 
-    hash_code = hash_file(cloud_file_path)
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_file_path)
 
-    #  with ServerProxy(name_server_url, allow_none=True) as proxy:
-        #  there will be a function return hash string from name server
+    if not path_valid or not path_exists:
+        return False, None
 
-    #  if(hash_code != server_hash_code):  # the file is corrupted, go to the back up
-        # with ServerProxy(name_server_url, allow_none=True) as proxy:
-        # there will be a function return hash string from backup
+    if backup:
+        path_obj = (root_dir / (str(user_id) + '_backup') / rel_path_str).resolve()
+    else:
+        path_obj = (root_dir / str(user_id) / rel_path_str).resolve()
 
-        #if(hash_code != backup_hash_code):  # the backup is also correupted
-        #    print("Sorry, the file is dead")
+    if not path_obj.is_file():
+        return False, None
 
-    #  else:  # take the file from server
-        #  decrpyt the file
-        #  return the file
+    with ServerProxy(name_server_url, allow_none=True) as name_proxy:
+        hash_info = name_proxy.get_file_hashes(user_id, rel_path_str)
 
-    pass
+    own_hash_matches, code = check_file_hash(user_id, cloud_file_path, hash_info[backup_ord][0])
+
+    if own_hash_matches:
+        return True, get_file_binary(str(path_obj))
+    else:
+        for i in range(1, len(hash_info)):
+            file_hash, address = hash_info[i]
+            with ServerProxy(address, allow_none=True) as file_server_proxy:
+                success, binary = file_server_proxy.fetch_file(user_id, cloud_file_path, True, i)
+
+                if success:
+                    return True, binary
+
+        return False, None
 
 
 if __name__ == '__main__':
@@ -217,6 +255,7 @@ if __name__ == '__main__':
 
     with SimpleXMLRPCServer(('localhost', args.port)) as server:
         server.register_function(path_check)
+        server.register_function(check_file_hash)
         server.register_function(get_filenames)
         server.register_function(make_dirs)
         server.register_function(delete_file)

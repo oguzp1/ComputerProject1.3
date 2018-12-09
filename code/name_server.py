@@ -164,6 +164,17 @@ def remove_file(user_id, cloud_file_rel_path):
         return False
 
 
+def get_file_hashes(user_id, cloud_file_rel_path):
+    try:
+        cursor.execute('''SELECT ISBACKUP, FILEHASH, ADDRESS FROM FILES JOIN SERVERS USING (SERVERID) 
+                            WHERE USERID = ? AND PATH = ? ORDER BY ISBACKUP DESC;''', (user_id, cloud_file_rel_path))
+        results = cursor.fetchall()
+
+        return [(file_hash, address) for _, file_hash, address in results]
+    except sqlite3.Error:
+        return []
+
+
 if __name__ == '__main__':
     server_counter = 0
 
@@ -183,6 +194,7 @@ if __name__ == '__main__':
         server.register_function(get_file_infos)
         server.register_function(get_file_backup_servers)
         server.register_function(remove_file)
+        server.register_function(get_file_hashes)
 
         try:
             server.serve_forever()
