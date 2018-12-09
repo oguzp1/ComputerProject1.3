@@ -82,7 +82,7 @@ def save_user(username, hash_password, salt):
 
 def get_user_credentials(username):
     try:
-        cursor.execute('SELECT USERID, PASSWORD FROM USERS WHERE USERNAME = ?;', (username, ))
+        cursor.execute('SELECT USERID, PASSWORD, SALT FROM USERS WHERE USERNAME = ?;', (username, ))
         results = cursor.fetchone()
 
         return results

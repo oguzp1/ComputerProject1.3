@@ -156,7 +156,17 @@ def upload_file(user_id, file_bin, cloud_file_path, filename):
 
 
 def fetch_file(user_id, username, cloud_file_path, local_path_obj):
-    flag, file_bin = proxy.fetch_file(user_id, cloud_file_path)
+    addresses = proxy.get_server_addresses(user_id)
+
+    flag = False
+    file_bin = None
+    for address in addresses:
+        with ServerProxy(address, allow_none=True) as new_proxy:
+            path_valid, path_exists, rel_path_str = new_proxy.path_check(user_id, cloud_file_path)
+
+            if path_valid and path_exists:
+                flag, file_bin = new_proxy.fetch_file(user_id, cloud_file_path)
+
     filename = Path(cloud_file_path).name
 
     if not flag:
@@ -179,14 +189,14 @@ def get_file_binary(local_path):
 
 
 def decrypt_file(username, file_bin):
+    _, password, salt = proxy.get_user_credentials(username)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=os.urandom(26),
+        salt=bytes(salt, 'utf-8'),
         iterations=100000,
         backend=default_backend()
     )
-    _, password = proxy.get_user_credentials(username)
     pass_as_bytes = bytes(password, 'utf-8')
     key = base64.urlsafe_b64encode(kdf.derive(pass_as_bytes))
     f = Fernet(key)
@@ -196,14 +206,14 @@ def decrypt_file(username, file_bin):
 
 
 def encrypt_file(username, file_bin):
+    _, password, salt = proxy.get_user_credentials(username)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=os.urandom(26),
+        salt=bytes(salt, 'utf-8'),
         iterations=100000,
         backend=default_backend()
     )
-    _, password = proxy.get_user_credentials(username)
     pass_as_bytes = bytes(password, 'utf-8')
     key = base64.urlsafe_b64encode(kdf.derive(pass_as_bytes))
     f = Fernet(key)
