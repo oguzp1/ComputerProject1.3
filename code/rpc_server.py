@@ -69,6 +69,18 @@ def get_filenames(user_id, cloud_dir_path):
     return cd_paths
 
 
+def make_dirs(user_id, cloud_dir_path):
+    base_dir = root_dir / str(user_id)
+    path_valid, path_exists, rel_path_str = path_check(user_id, cloud_dir_path)
+    path_obj = base_dir / rel_path_str
+
+    if not path_valid or path_exists:
+        return False
+
+    path_obj.mkdir(parents=True)
+    return True
+
+
 def delete_file(user_id, cloud_file_path):
     """
         user_id,
@@ -173,6 +185,7 @@ if __name__ == '__main__':
     with SimpleXMLRPCServer(('localhost', args.port)) as server:
         server.register_function(path_check)
         server.register_function(get_filenames)
+        server.register_function(make_dirs)
         server.register_function(delete_file)
         server.register_function(upload_file)
         server.register_function(fetch_file)

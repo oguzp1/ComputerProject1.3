@@ -52,6 +52,23 @@ def init_db():
     connection.commit()
 
 
+def get_next_server():
+    global server_counter
+
+    try:
+        cursor.execute('SELECT COUNT(*) FROM SERVERS;')
+        result = cursor.fetchone()
+
+        server_counter = (server_counter + 1) % result[0]
+
+        cursor.execute('SELECT ADDRESS FROM SERVERS WHERE SERVERID = ?;', (server_counter + 1, ))
+        address = cursor.fetchone()
+
+        return address[0]
+    except sqlite3.Error:
+        return ''
+
+
 def save_user(username, hash_password, salt):
     try:
         cursor.execute('INSERT INTO USERS (USERNAME, PASSWORD, SALT) VALUES (?, ?, ?);',
@@ -126,12 +143,15 @@ def get_file_infos(user_id, cloud_dir_paths):
 
 
 if __name__ == '__main__':
+    server_counter = 0
+
     connection = sqlite3.connect('info.db')
     cursor = connection.cursor()
 
     init_db()
 
     with SimpleXMLRPCServer(name_server_info, allow_none=True) as server:
+        server.register_function(get_next_server)
         server.register_function(save_user)
         server.register_function(get_user_credentials)
         server.register_function(get_server_addresses)

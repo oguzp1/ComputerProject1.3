@@ -87,7 +87,12 @@ def can_change_dir(user_id, cloud_dir_path):
 
 
 def make_dirs(user_id, cloud_dir_path):
-    pass
+    address = proxy.get_next_server()
+
+    with ServerProxy(address, allow_none=True) as new_proxy:
+        made = new_proxy.make_dirs(user_id, cloud_dir_path)
+
+    return made
 
 
 def get_file_binary(local_path):
@@ -156,11 +161,16 @@ class App(object):
 
                 if can_change:
                     self.cd = rel_path
-                    print('{}/'.format(self.username) + self.cd)
+                    print('{}/{}'.format(self.username, self.cd))
                 else:
                     print('Invalid file path.')
             elif command[0] == 'makedir' and len(command) == 2:
-                pass
+                target_dir_str = str(Path(self.cd) / command[1].strip())
+
+                if make_dirs(self.user_id, target_dir_str):
+                    print('Successfully created "{}".'.format(target_dir_str))
+                else:
+                    print('Could not create directory.')
             elif command[0] == 'deletedir' and len(command) == 2:
                 pass
             elif command[0] == 'upload' and len(command) == 4:
